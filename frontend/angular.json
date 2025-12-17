@@ -7,8 +7,8 @@
       "root": "",
       "sourceRoot": "src",
       "architect": {
-          "build": {
-           "builder": "@angular-devkit/build-angular:browser-esbuild",
+        "build": {
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
             "outputPath": "dist/employee-availability-frontend",
             "index": "src/index.html",
