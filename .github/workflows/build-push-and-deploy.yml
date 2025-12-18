@@ -3,7 +3,7 @@ name: Build & Deploy App via GHCR
 on:
   push:
     branches: [ main ]
-
+    
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
