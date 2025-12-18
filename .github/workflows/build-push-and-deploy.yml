@@ -97,7 +97,7 @@ jobs:
         id: get_instance
         run: |
           INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=app-server" "Name=instance-state-name,Values=running" \
+            --filters "Name=tag:Name,Values=Employee-App-Server" "Name=instance-state-name,Values=running" \
             --query "Reservations[*].Instances[*].InstanceId" \
             --output text | head -n1)
 
