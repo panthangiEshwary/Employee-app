@@ -82,50 +82,25 @@ jobs:
           docker push ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}
 
       # ---------------------------
-      # AWS + SSM Deploy
+      # Trigger deployment on EC2 using SSM
       # ---------------------------
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Get App EC2 instance id
-        id: get_instance
-        run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=Employee-App-Server" "Name=instance-state-name,Values=running" \
-            --query "Reservations[*].Instances[*].InstanceId" \
-            --output text | head -n1)
-
-          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-          echo "Found instance: $INSTANCE_ID"
-
-      - name: Get RDS Endpoint
-        id: get_rds
-        run: |
-          DB_HOST=$(aws rds describe-db-instances \
-            --db-instance-identifier employee-db \
-            --query "DBInstances[0].Endpoint.Address" \
-            --output text)
-
-          echo "db_host=$DB_HOST" >> $GITHUB_OUTPUT
-          echo "Resolved DB endpoint: $DB_HOST"
-
       - name: Trigger SSM Deploy Script
         if: ${{ steps.get_instance.outputs.instance_id != '' }}
         run: |
+          BACKEND_IMAGE="ghcr.io/${REPO_OWNER_LC}/employee-backend:${{ github.run_number }}"
+          FRONTEND_IMAGE="ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}"
+
           aws ssm send-command \
-           --instance-ids "${{ steps.get_instance.outputs.instance_id }}" \
-          --document-name "AWS-RunShellScript" \
-          --comment "Deploy CI build" \
-          --parameters commands="[
-          \"export GHCR_USER=${REPO_OWNER_LC}\",
-          \"export GHCR_TOKEN=${{ secrets.GHCR_PAT }}\",
-          \"export DB_HOST=${{ steps.get_rds.outputs.db_host }}\",
-          \"export DB_USER=admin\",
-          \"export DB_PASS=${{ secrets.DB_MASTER_PASSWORD }}\",
-          \"export BACKEND_IMAGE=ghcr.io/${REPO_OWNER_LC}/employee-backend:${{ github.run_number }}\",
-          \"export FRONTEND_IMAGE=ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}\",
-          \"bash /opt/app/deploy.sh\"
-          ]"
+            --instance-ids "${{ steps.get_instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy CI build" \
+            --parameters "commands=[
+              \"GHCR_USER=${{ github.repository_owner }} \
+              GHCR_TOKEN=${{ secrets.GHCR_PAT }} \
+              DB_HOST=${{ steps.get_rds.outputs.db_host }} \
+              DB_USER=admin \
+              DB_PASS=${{ secrets.DB_MASTER_PASSWORD }} \
+              BACKEND_IMAGE=$BACKEND_IMAGE \
+              FRONTEND_IMAGE=$FRONTEND_IMAGE \
+              /opt/app/deploy.sh\"
+            ]"
