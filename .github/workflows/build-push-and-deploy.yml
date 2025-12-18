@@ -108,7 +108,7 @@ jobs:
         id: get_rds
         run: |
           DB_HOST=$(aws rds describe-db-instances \
-            --db-instance-identifier employees-db \
+            --db-instance-identifier employee-db \
             --query "DBInstances[0].Endpoint.Address" \
             --output text)
 
