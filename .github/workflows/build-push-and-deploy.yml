@@ -5,7 +5,6 @@ on:
     branches: [ main ]
 
 jobs:
-
   build-and-push:
     runs-on: ubuntu-latest
 
@@ -69,12 +68,10 @@ jobs:
       # Docker Builds
       # ------------------------------
       - name: Build Backend Image
-        run: |
-          docker build -t ghcr.io/${REPO_OWNER_LC}/employee-backend:${{ github.run_number }} backend
+        run: docker build -t ghcr.io/${REPO_OWNER_LC}/employee-backend:${{ github.run_number }} backend
 
       - name: Build Frontend Image
-        run: |
-          docker build -t ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }} frontend
+        run: docker build -t ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }} frontend
 
       # ------------------------------
       # Push to GHCR
@@ -85,7 +82,7 @@ jobs:
           docker push ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}
 
       # ---------------------------
-      # Trigger deployment on EC2 using SSM
+      # AWS + SSM Deploy
       # ---------------------------
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -115,30 +112,30 @@ jobs:
           echo "db_host=$DB_HOST" >> $GITHUB_OUTPUT
           echo "Resolved DB endpoint: $DB_HOST"
 
-- name: Trigger SSM Deploy Script
-  if: ${{ steps.get_instance.outputs.instance_id != '' }}
-  run: |
-    set -e
+      - name: Trigger SSM Deploy Script
+        if: ${{ steps.get_instance.outputs.instance_id != '' }}
+        run: |
+          set -e
 
-    COMMAND_ID=$(aws ssm send-command \
-      --instance-ids "${{ steps.get_instance.outputs.instance_id }}" \
-      --document-name "AWS-RunShellScript" \
-      --comment "Deploy CI build" \
-      --parameters commands="[
-        \"GHCR_USER=${REPO_OWNER_LC}\",
-        \"GHCR_TOKEN=${{ secrets.GHCR_PAT }}\",
-        \"DB_HOST=${{ steps.get_rds.outputs.db_host }}\",
-        \"DB_USER=admin\",
-        \"DB_PASS=${{ secrets.DB_MASTER_PASSWORD }}\",
-        \"BACKEND_IMAGE=ghcr.io/${REPO_OWNER_LC}/employee-backend:${{ github.run_number }}\",
-        \"FRONTEND_IMAGE=ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}\",
-        \"/opt/app/deploy.sh\"
-      ]" \
-      --query "Command.CommandId" \
-      --output text)
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ steps.get_instance.outputs.instance_id }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy CI build" \
+            --parameters commands="[
+              \"GHCR_USER=${REPO_OWNER_LC}\",
+              \"GHCR_TOKEN=${{ secrets.GHCR_PAT }}\",
+              \"DB_HOST=${{ steps.get_rds.outputs.db_host }}\",
+              \"DB_USER=admin\",
+              \"DB_PASS=${{ secrets.DB_MASTER_PASSWORD }}\",
+              \"BACKEND_IMAGE=ghcr.io/${REPO_OWNER_LC}/employee-backend:${{ github.run_number }}\",
+              \"FRONTEND_IMAGE=ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}\",
+              \"/opt/app/deploy.sh\"
+            ]" \
+            --query "Command.CommandId" \
+            --output text)
 
-    echo "SSM Command ID: $COMMAND_ID"
+          echo "SSM Command ID: $COMMAND_ID"
 
-    aws ssm wait command-executed \
-      --command-id "$COMMAND_ID" \
-      --instance-id "${{ steps.get_instance.outputs.instance_id }}"
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ steps.get_instance.outputs.instance_id }}"
