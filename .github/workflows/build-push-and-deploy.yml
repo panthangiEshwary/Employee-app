@@ -82,7 +82,7 @@ jobs:
           docker push ghcr.io/${REPO_OWNER_LC}/employee-frontend:${{ github.run_number }}
 
       # ======================================================
-      # CD PART (SSM)
+      # Deployment (SSM)
       # ======================================================
 
       # ------------------------------
