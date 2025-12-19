@@ -5,7 +5,9 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 
-RUN mvn clean package -DskipTests
+RUN mvn -B -e -DskipTests clean package \
+ || mvn -B -e -DskipTests clean package \
+ || mvn -B -e -DskipTests clean package
 
 # === Stage 2: Runtime ===
 FROM eclipse-temurin:17-jdk
